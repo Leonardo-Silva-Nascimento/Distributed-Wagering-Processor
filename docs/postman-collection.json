@@ -1,0 +1,242 @@
+{
+  "info": {
+    "name": "Distributed Wagering Processor",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",           "value": "http://localhost:3000" },
+    { "key": "walletId",          "value": "" },
+    { "key": "playerId",          "value": "player-001" },
+    { "key": "transactionId",     "value": "" },
+    { "key": "betExternalId",     "value": "bet-001" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health/live"
+          }
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health/ready"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wallets",
+      "item": [
+        {
+          "name": "Create Wallet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('walletId', body.id);",
+                  "  pm.collectionVariables.set('playerId', body.playerId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",    "value": "application/json" },
+              { "key": "X-Correlation-Id","value": "req-create-wallet-001" }
+            ],
+            "url": "{{baseUrl}}/wallets",
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"playerId\": \"{{playerId}}\",\n  \"initialBalance\": {\n    \"amount\": \"1000.00\",\n    \"currency\": \"BRL\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Wallet",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/wallets/{{walletId}}"
+          }
+        },
+        {
+          "name": "Get Ledger",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/wallets/{{walletId}}/ledger?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["wallets", "{{walletId}}", "ledger"],
+              "query": [
+                { "key": "limit",  "value": "20" },
+                { "key": "cursor", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reconcile",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/wallets/{{walletId}}/reconciliation"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wagering",
+      "item": [
+        {
+          "name": "BET",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('transactionId', body.transactionId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",    "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "provider-a:{{betExternalId}}" }
+            ],
+            "url": "{{baseUrl}}/wagering/transactions",
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"providerId\": \"provider-a\",\n  \"externalTransactionId\": \"{{betExternalId}}\",\n  \"playerId\": \"{{playerId}}\",\n  \"walletId\": \"{{walletId}}\",\n  \"roundId\": \"round-99\",\n  \"gameId\": \"slots-megaways\",\n  \"kind\": \"BET\",\n  \"money\": {\n    \"amount\": \"100.00\",\n    \"currency\": \"BRL\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "WIN",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",    "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "provider-a:win-001" }
+            ],
+            "url": "{{baseUrl}}/wagering/transactions",
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"providerId\": \"provider-a\",\n  \"externalTransactionId\": \"win-001\",\n  \"playerId\": \"{{playerId}}\",\n  \"walletId\": \"{{walletId}}\",\n  \"roundId\": \"round-99\",\n  \"gameId\": \"slots-megaways\",\n  \"kind\": \"WIN\",\n  \"money\": {\n    \"amount\": \"250.00\",\n    \"currency\": \"BRL\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "LOSS",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",    "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "provider-a:loss-001" }
+            ],
+            "url": "{{baseUrl}}/wagering/transactions",
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"providerId\": \"provider-a\",\n  \"externalTransactionId\": \"loss-001\",\n  \"playerId\": \"{{playerId}}\",\n  \"walletId\": \"{{walletId}}\",\n  \"roundId\": \"round-99\",\n  \"gameId\": \"slots-megaways\",\n  \"kind\": \"LOSS\",\n  \"money\": {\n    \"amount\": \"0.00\",\n    \"currency\": \"BRL\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "REFUND (referencia BET)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",    "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "provider-a:refund-001" }
+            ],
+            "url": "{{baseUrl}}/wagering/transactions",
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"providerId\": \"provider-a\",\n  \"externalTransactionId\": \"refund-001\",\n  \"playerId\": \"{{playerId}}\",\n  \"walletId\": \"{{walletId}}\",\n  \"roundId\": \"round-99\",\n  \"gameId\": \"slots-megaways\",\n  \"kind\": \"REFUND\",\n  \"money\": {\n    \"amount\": \"100.00\",\n    \"currency\": \"BRL\"\n  },\n  \"referenceExternalTransactionId\": \"{{betExternalId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "ROLLBACK (referencia WIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",    "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "provider-a:rollback-win-001" }
+            ],
+            "url": "{{baseUrl}}/wagering/transactions",
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"providerId\": \"provider-a\",\n  \"externalTransactionId\": \"rollback-win-001\",\n  \"playerId\": \"{{playerId}}\",\n  \"walletId\": \"{{walletId}}\",\n  \"roundId\": \"round-99\",\n  \"gameId\": \"slots-megaways\",\n  \"kind\": \"ROLLBACK\",\n  \"money\": {\n    \"amount\": \"250.00\",\n    \"currency\": \"BRL\"\n  },\n  \"referenceExternalTransactionId\": \"win-001\"\n}"
+            }
+          }
+        },
+        {
+          "name": "BET (replay idempotente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",    "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "provider-a:{{betExternalId}}" }
+            ],
+            "url": "{{baseUrl}}/wagering/transactions",
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"providerId\": \"provider-a\",\n  \"externalTransactionId\": \"{{betExternalId}}\",\n  \"playerId\": \"{{playerId}}\",\n  \"walletId\": \"{{walletId}}\",\n  \"roundId\": \"round-99\",\n  \"gameId\": \"slots-megaways\",\n  \"kind\": \"BET\",\n  \"money\": {\n    \"amount\": \"100.00\",\n    \"currency\": \"BRL\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "REFUND antes do BET (PENDING_REFERENCE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",    "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "provider-a:refund-ooo-001" }
+            ],
+            "url": "{{baseUrl}}/wagering/transactions",
+            "body": {
+              "mode": "raw",
+              "options": { "raw": { "language": "json" } },
+              "raw": "{\n  \"providerId\": \"provider-a\",\n  \"externalTransactionId\": \"refund-ooo-001\",\n  \"playerId\": \"{{playerId}}\",\n  \"walletId\": \"{{walletId}}\",\n  \"roundId\": \"round-ooo\",\n  \"gameId\": \"slots-megaways\",\n  \"kind\": \"REFUND\",\n  \"money\": {\n    \"amount\": \"50.00\",\n    \"currency\": \"BRL\"\n  },\n  \"referenceExternalTransactionId\": \"bet-ooo-001\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Transaction (ID interno)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/wagering/transactions/{{transactionId}}"
+          }
+        },
+        {
+          "name": "Get Transaction (ID externo)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/providers/provider-a/wagering/transactions/{{betExternalId}}"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+version: '3.9'
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: wagering_test
+      POSTGRES_USER: wagering
+      POSTGRES_PASSWORD: wagering
+    ports:
+      - '5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U wagering -d wagering_test']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  localstack-test:
+    image: localstack/localstack:3
+    environment:
+      SERVICES: sqs
+      DEBUG: 0
+    ports:
+      - '4567:4566'
+    tmpfs:
+      - /var/lib/localstack
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:4566/_localstack/health']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  localstack-test-init:
+    image: amazon/aws-cli:2.22.0
+    depends_on:
+      localstack-test:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint:
+      - sh
+      - -c
+      - |
+        aws --endpoint-url=http://localstack-test:4566 sqs create-queue --queue-name wager-transactions.fifo --attributes FifoQueue=true,ContentBasedDeduplication=true &&
+        aws --endpoint-url=http://localstack-test:4566 sqs create-queue --queue-name wager-transactions-dlq.fifo --attributes FifoQueue=true,ContentBasedDeduplication=true &&
+        echo 'Test SQS queues created'
+    restart: on-failure
